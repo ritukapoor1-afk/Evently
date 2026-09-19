@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Evently end-to-end test</title>
+<style>
+  body { font-family: Consolas, monospace; padding: 20px; }
+  #out { font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+  iframe { width: 1100px; height: 700px; border: 1px solid #ccc; margin-top: 20px; }
+</style>
+</head>
+<body>
+<pre id="out">running…</pre>
+<iframe id="f" src="/index.html"></iframe>
+<script>
+/* Fully synchronous: every assertion runs inside the iframe's load handler,
+   which completes before this parent document fires its own load event. */
+document.getElementById('f').onload = function () {
+  const lines = [];
+  let pass = 0, fail = 0;
+  const check = (name, cond, extra) => {
+    if (cond) { pass++; lines.push('[PASS] ' + name); }
+    else { fail++; lines.push('[FAIL] ' + name + (extra !== undefined ? '  -> got: ' + extra : '')); }
+  };
+
+  const f = document.getElementById('f');
+  const d = f.contentDocument;
+  const $ = id => d.getElementById(id);
+  const vis = id => !$(id).classList.contains('hidden');
+
+  try {
+    /* 1. initial state */
+    check('home visible initially', vis('home'));
+    check('planner hidden initially', !vis('planner'));
+    check('plan hidden initially', !vis('plan'));
+
+    /* 2. Custom Event card opens the planner */
+    const card = d.querySelector('[data-type="custom"]');
+    check('custom event card exists', !!card);
+    card.click();
+    check('planner visible after card click', vis('planner'));
+    check('home hidden after card click', !vis('home'));
+    check('plan still hidden', !vis('plan'));
+
+    /* 3. Q1 renders correctly */
+    check('Q1 asks what to celebrate',
+      $('questionTitle').textContent.toLowerCase().indexOf('celebrate') > -1,
+      $('questionTitle').textContent);
+    check('progress reads 1 of 12',
+      $('stepCurrent').textContent === '1' && $('stepTotal').textContent === '12',
+      $('stepCurrent').textContent + '/' + $('stepTotal').textContent);
+    check('question number is 1', $('qNum').textContent === '1', $('qNum').textContent);
+    check('percent label is 8%', $('progressPercent').textContent === '8%', $('progressPercent').textContent);
+    check('Back disabled on Q1', $('prevBtn').disabled === true);
+    check('Q1 has a text input', !!$('answerInput'));
+
+    /* 4. empty answer must not advance */
+    $('nextBtn').click();
+    check('empty answer blocks advancing', $('qNum').textContent === '1', 'qNum=' + $('qNum').textContent);
+
+    /* 5. walk all 12 steps */
+    const textAnswers = {
+      1: 'a 30th birthday party', 3: 'Austin, TX', 4: '60',
+      5: '8000', 11: 'wheelchair access for grandma', 12: 'no loud music after 10pm'
+    };
+    const chipSteps = [];
+
+    for (let step = 1; step <= 12; step++) {
+      check('reached step ' + step, parseInt($('qNum').textContent, 10) === step,
+        'qNum=' + $('qNum').textContent);
+
+      if (step === 12) {
+        check('final button says Generate my plan',
+          $('nextBtn').textContent.indexOf('Generate') > -1, $('nextBtn').textContent);
+      }
+
+      const inp = $('answerInput');
+      if (inp) {
+        inp.value = (inp.type === 'date') ? '2027-06-14' : (textAnswers[step] || 'x');
+      } else {
+        const chips = d.querySelectorAll('#questionInput .chip');
+        check('Q' + step + ' rendered option chips', chips.length > 0, 'count=' + chips.length);
+        chips[0].click();
+        if (chips.length > 2) chips[1].click();
+        const sel = d.querySelectorAll('#questionInput .chip-selected');
+        check('Q' + step + ' chips selectable', sel.length >= 1, 'selected=' + sel.length);
+        chipSteps.push(step);
+      }
+
+      $('nextBtn').click();
+    }
+
+    check('exactly 5 chip questions (Q6-Q10)', chipSteps.length === 5, chipSteps.join(','));
+
+    /* 6. plan rendered */
+    check('plan section visible at the end', vis('plan'));
+    check('planner hidden at the end', !vis('planner'));
+    check('plan title uses the occasion',
+      $('planTitle').textContent.toLowerCase().indexOf('birthday') > -1, $('planTitle').textContent);
+    check('plan summary mentions the city',
+      $('planSummary').textContent.indexOf('Austin') > -1, $('planSummary').textContent);
+    check('4 meta pills', d.querySelectorAll('#planMeta .meta-pill').length === 4,
+      d.querySelectorAll('#planMeta .meta-pill').length);
+
+    /* date must render the SAME day that was entered (no timezone slip) */
+    check('entered date 2027-06-14 shows as June 14 (not 13)',
+      $('planSummary').textContent.indexOf('June 14, 2027') > -1,
+      $('planSummary').textContent);
+    check('meta pill shows June 14 too',
+      $('planMeta').textContent.indexOf('June 14, 2027') > -1,
+      $('planMeta').textContent);
+    check('timeline final row shows the event day itself',
+      $('timelineList').textContent.indexOf('June 14, 2027') > -1,
+      $('timelineList').textContent.slice(-120));
+
+    const cards = d.querySelectorAll('#planGrid .plan-card');
+    check('7 plan cards generated', cards.length === 7, cards.length);
+    const titles = [];
+    for (let i = 0; i < cards.length; i++) titles.push(cards[i].querySelector('h3').textContent);
+    const joined = titles.join(' | ');
+    const wanted = ['Event concept','Suggested theme','Suggested venue type','Budget categories',
+                    'Food / catering ideas','Decoration ideas','Entertainment ideas'];
+    let allThere = true;
+    for (let i = 0; i < wanted.length; i++) if (joined.indexOf(wanted[i]) === -1) allThere = false;
+    check('cards cover all 7 required sections', allThere, joined);
+
+    /* 7. budget maths */
+    const rows = d.querySelectorAll('#planGrid .budget-row');
+    check('6 budget rows', rows.length === 6, rows.length);
+    let total = 0, amounts = [];
+    for (let i = 0; i < rows.length; i++) {
+      const spans = rows[i].querySelectorAll('.budget-top span');
+      // Text reads "$2,400 · 30%" — take only the dollar part before the separator.
+      const dollarPart = spans[spans.length - 1].textContent.split('·')[0];
+      const amt = parseInt(dollarPart.replace(/[^0-9]/g, ''), 10);
+      amounts.push(amt); total += amt;
+    }
+    check('budget categories sum to the $8000 entered', total === 8000,
+      'sum=' + total + ' rows=' + amounts.join(','));
+
+    /* 8. timeline / checklist / considerations */
+    const tl = d.querySelectorAll('#timelineList li');
+    check('timeline has entries', tl.length >= 5, tl.length);
+    check('timeline shows real computed dates',
+      /20\d\d/.test($('timelineList').textContent), $('timelineList').textContent.slice(0, 130));
+
+    const cl = d.querySelectorAll('#checklistList li');
+    check('checklist has entries', cl.length >= 5, cl.length);
+
+    const cons = $('considerationsList').textContent;
+    check('considerations include the special requirement', cons.indexOf('wheelchair') > -1, cons.slice(0, 140));
+    check('considerations include the thing to avoid',
+      cons.toLowerCase().indexOf('loud music') > -1, cons.slice(0, 140));
+
+    /* 9. checklist interactivity */
+    const li = cl[0];
+    const box = li.querySelector('.check-box');
+    const before = box.textContent;
+    li.click();
+    check('clicking a checklist item toggles its box', box.textContent !== before,
+      before + ' -> ' + box.textContent);
+    check('clicking adds the .checked class', li.classList.contains('checked'));
+
+    /* 10. restart */
+    $('restartBtn').click();
+    check('restart returns to the planner', vis('planner'));
+    check('restart starts at question 1', $('qNum').textContent === '1', $('qNum').textContent);
+    check('restart clears previous answers', !$('answerInput') || $('answerInput').value === '',
+      $('answerInput') ? $('answerInput').value : 'no input');
+
+    /* 11. Back preserves the typed answer */
+    const q1 = $('answerInput');
+    q1.value = 'a rooftop gala';
+    $('nextBtn').click();
+    check('advanced to Q2', $('qNum').textContent === '2', $('qNum').textContent);
+    $('prevBtn').click();
+    check('Back returns to Q1', $('qNum').textContent === '1', $('qNum').textContent);
+    check('Back preserved the typed answer', $('answerInput').value === 'a rooftop gala',
+      $('answerInput').value);
+
+    /* 12. go home */
+    $('planBackHome').click();
+    check('goHome shows home again', vis('home'));
+
+    /* 13. header navigation must work from the planner and plan views.
+       Regression: the logo was href="#" and the nav anchors pointed at
+       sections that stay hidden, so the user had no way back to the homepage. */
+    d.querySelector('[data-type="custom"]').click();
+    check('back inside the planner', vis('planner'));
+
+    const logo = d.querySelector('.logo');
+    check('header logo exists', !!logo);
+    logo.click();
+    check('clicking the header logo returns to the homepage', vis('home'),
+      'planner=' + vis('planner') + ' plan=' + vis('plan'));
+    check('clicking the logo hides the planner', !vis('planner'));
+
+    /* nav anchor from the planner view */
+    d.querySelector('[data-type="custom"]').click();
+    check('returned to the planner for nav test', vis('planner'));
+    const typesLink = d.querySelector('.nav-links a[href="#types"]');
+    check('header "Event types" link exists', !!typesLink);
+    typesLink.click();
+    check('clicking a header nav link reveals the homepage', vis('home'),
+      'planner=' + vis('planner') + ' plan=' + vis('plan'));
+
+    /* logo must also work from the plan/results view */
+    const text2 = { 1: 'a party', 3: 'Austin, TX', 4: '40', 5: '5000' };
+    for (let s = 1; s <= 12; s++) {
+      const el = $('answerInput');
+      if (el) el.value = (el.type === 'date') ? '2027-06-14' : (text2[s] || 'x');
+      else { const ch = d.querySelectorAll('#questionInput .chip'); ch[0].click(); }
+      $('nextBtn').click();
+    }
+    check('on the plan view for logo test', vis('plan'));
+    d.querySelector('.logo').click();
+    check('clicking the logo from the plan view returns home', vis('home'),
+      'planner=' + vis('planner') + ' plan=' + vis('plan'));
+
+    /* the hero CTA should land on the event-types grid, not a hidden section */
+    const cta = d.querySelector('.hero-actions a[href="#types"]');
+    check('hero "Start planning" CTA points at #types', !!cta);
+    check('the #types section exists as its own element', !!d.getElementById('types'));
+
+  } catch (err) {
+    fail++;
+    lines.push('[FAIL] harness threw: ' + (err && err.stack ? err.stack : err));
+  }
+
+  lines.push('');
+  lines.push('=====================================');
+  lines.push('TOTAL: ' + (pass + fail) + '   PASSED: ' + pass + '   FAILED: ' + fail);
+  lines.push('=====================================');
+  document.getElementById('out').textContent = lines.join('\n');
+};
+</script>
+</body>
+</html>

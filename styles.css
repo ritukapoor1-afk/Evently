@@ -290,10 +290,15 @@ a { color: var(--primary); text-decoration: none; }
   box-shadow: var(--shadow-lg);
 }
 .type-card-primary:hover { transform: translateY(-5px) scale(1.01); }
-.type-card-primary p { color: rgba(255, 255, 255, .92); }
 .type-emoji { font-size: 2.3rem; line-height: 1; margin-bottom: 14px; }
 .type-card h3 { font-size: 1.2rem; margin-bottom: 6px; letter-spacing: -.01em; }
 .type-card p { color: var(--text-soft); font-size: .92rem; line-height: 1.55; }
+/* Declared after the generic .type-card p rule — equal specificity means
+   source order decides, so this must stay last to win. */
+.type-card.type-card-primary p {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(76, 29, 149, .28);
+}
 .badge {
   position: absolute;
   top: 18px; right: 18px;

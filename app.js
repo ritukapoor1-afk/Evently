@@ -331,8 +331,7 @@ function budgetBreakdown(budget) {
 function renderTimeline(dateStr) {
   const list = $("timelineList");
   list.innerHTML = "";
-  let eventDate = dateStr ? new Date(dateStr) : null;
-  if (eventDate && isNaN(eventDate)) eventDate = null;
+  const eventDate = parseLocalDate(dateStr);
 
   const items = [
     { label: "12 weeks out", detail: "Lock the venue, finalize the date, and send save-the-dates." },
@@ -352,7 +351,7 @@ function renderTimeline(dateStr) {
       const d = new Date(eventDate);
       const weeks = { "12 weeks out": 12, "8 weeks out": 8, "6 weeks out": 6, "4 weeks out": 4, "2 weeks out": 2, "1 week out": 1, "Event day": 0 }[it.label];
       if (weeks > 0) d.setDate(d.getDate() - weeks * 7);
-      when = weeks === 0 ? formatDate(eventDate.toISOString().slice(0, 10)) : `${formatDate(d.toISOString().slice(0, 10))} (${it.label})`;
+      when = weeks === 0 ? formatDate(eventDate) : `${formatDate(toISODate(d))} (${it.label})`;
     }
     li.innerHTML = `<span class="tl-when">${when}</span><span class="tl-detail">${it.detail}</span>`;
     list.appendChild(li);
@@ -410,10 +409,27 @@ function renderConsiderations(specialReq, avoid, venue) {
 }
 
 /* ---------- Utils ---------- */
-function formatDate(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d)) return iso;
+// Build a Date in LOCAL time from a yyyy-mm-dd string. Using `new Date(iso)`
+// would parse as UTC midnight and render a day early in western timezones.
+function parseLocalDate(iso) {
+  if (!iso) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return isNaN(d) ? null : d;
+}
+
+// Format a Date as yyyy-mm-dd using local parts (toISOString would shift to UTC).
+function toISODate(d) {
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  const d = (value instanceof Date) ? value : parseLocalDate(value);
+  if (!d || isNaN(d)) return String(value);
   return d.toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "long", day: "numeric" });
 }
 
@@ -424,11 +440,29 @@ function startOver() {
   showPlanner();
 }
 
-function goHome() {
+function showHomeSection() {
   plannerSection.classList.add("hidden");
   planSection.classList.add("hidden");
   homeSection.classList.remove("hidden");
+}
+
+function goHome() {
+  showHomeSection();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// The header is sticky and always on screen, so its links must work from any
+// view. Without revealing the homepage first, an in-page anchor like #types
+// would scroll to a section still hidden behind the planner.
+function goHomeAndScrollTo(targetId) {
+  showHomeSection();
+  const target = targetId ? document.getElementById(targetId) : null;
+  if (!target) {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+  // Let the homepage paint before measuring where the section sits.
+  setTimeout(() => target.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
 }
 
 /* ---------- Event listeners ---------- */
@@ -452,7 +486,25 @@ if (planBackHomeBtn) planBackHomeBtn.addEventListener("click", goHome);
 if (restartBtn) restartBtn.addEventListener("click", startOver);
 if (printBtn) printBtn.addEventListener("click", () => window.print());
 
+// Header logo: the universal "back to the start" affordance.
+const logoLink = document.querySelector(".logo");
+if (logoLink) {
+  logoLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    goHome();
+  });
+}
+
+// Header nav links: reveal the homepage, then scroll to the target section.
+document.querySelectorAll('.nav-links a[href^="#"]').forEach((link) => {
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    goHomeAndScrollTo(link.getAttribute("href").slice(1));
+  });
+});
+
 /* ---------- Expose for inline handlers ---------- */
 window.startCustomEvent = showPlanner;
 window.startOver = startOver;
 window.goHome = goHome;
+window.goHomeAndScrollTo = goHomeAndScrollTo;
