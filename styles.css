@@ -838,6 +838,57 @@ a { color: var(--primary); text-decoration: none; }
 .checklist-item.checked .check-box { color: var(--primary-dark); }
 .checklist-item.checked .check-text { text-decoration: line-through; color: var(--text-soft); }
 
+/* "Describe your vision" — the free-form closing step */
+.vision-field { display: grid; gap: 12px; }
+.question-input .vision-input {
+  min-height: 190px;
+  line-height: 1.65;
+  resize: vertical;
+}
+.vision-note {
+  font-size: .9rem;
+  color: var(--text-soft);
+  margin: 0;
+}
+
+/* The user's own words, echoed back at the top of the plan */
+.plan-vision {
+  max-width: 700px;
+  margin: 26px auto 0;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 22px 26px;
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+}
+.vision-quote-label {
+  display: block;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.plan-vision blockquote {
+  font-size: 1.02rem;
+  line-height: 1.7;
+  color: var(--text);
+  font-style: italic;
+  white-space: pre-wrap;
+}
+
+/* Budget total line beneath the category bars */
+.budget-note {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: .88rem;
+  color: var(--text-soft);
+}
+
 /* ---------- 7. Responsive ---------- */
 @media (max-width: 980px) {
   .type-grid { grid-template-columns: repeat(2, 1fr); }

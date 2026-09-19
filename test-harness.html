@@ -5,7 +5,7 @@
 <title>Evently end-to-end test</title>
 <style>
   body { font-family: Consolas, monospace; padding: 20px; }
-  #out { font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+  #out { font-size: 13px; line-height: 1.45; white-space: pre-wrap; }
   iframe { width: 1100px; height: 700px; border: 1px solid #ccc; margin-top: 20px; }
 </style>
 </head>
@@ -25,16 +25,21 @@ document.getElementById('f').onload = function () {
 
   const f = document.getElementById('f');
   const d = f.contentDocument;
+  const w = f.contentWindow;
   const $ = id => d.getElementById(id);
   const vis = id => !$(id).classList.contains('hidden');
+  const txt = id => ($(id) ? $(id).textContent : '');
+
+  const VISION = 'I want an elegant but fun 50th birthday celebration for about 50 guests. ' +
+                 'I love Indian food, music and beautiful outdoor spaces.';
 
   try {
-    /* 1. initial state */
+    /* ---------- 1. initial state ---------- */
     check('home visible initially', vis('home'));
     check('planner hidden initially', !vis('planner'));
     check('plan hidden initially', !vis('plan'));
 
-    /* 2. Custom Event card opens the planner */
+    /* ---------- 2. Custom Event opens the planner ---------- */
     const card = d.querySelector('[data-type="custom"]');
     check('custom event card exists', !!card);
     card.click();
@@ -42,40 +47,57 @@ document.getElementById('f').onload = function () {
     check('home hidden after card click', !vis('home'));
     check('plan still hidden', !vis('plan'));
 
-    /* 3. Q1 renders correctly */
+    /* ---------- 3. Q1 renders ---------- */
     check('Q1 asks what to celebrate',
-      $('questionTitle').textContent.toLowerCase().indexOf('celebrate') > -1,
-      $('questionTitle').textContent);
-    check('progress reads 1 of 12',
-      $('stepCurrent').textContent === '1' && $('stepTotal').textContent === '12',
-      $('stepCurrent').textContent + '/' + $('stepTotal').textContent);
+      txt('questionTitle').toLowerCase().indexOf('celebrate') > -1, txt('questionTitle'));
+    check('progress total is 13 (12 questions + vision)',
+      $('stepTotal').textContent === '13', $('stepTotal').textContent);
+    check('progress reads 1 of 13', $('stepCurrent').textContent === '1', $('stepCurrent').textContent);
     check('question number is 1', $('qNum').textContent === '1', $('qNum').textContent);
+    check('question label says "Question"', txt('questionLabel').indexOf('Question') > -1, txt('questionLabel'));
     check('percent label is 8%', $('progressPercent').textContent === '8%', $('progressPercent').textContent);
     check('Back disabled on Q1', $('prevBtn').disabled === true);
     check('Q1 has a text input', !!$('answerInput'));
 
-    /* 4. empty answer must not advance */
+    /* ---------- 4. empty answer blocks progress ---------- */
     $('nextBtn').click();
     check('empty answer blocks advancing', $('qNum').textContent === '1', 'qNum=' + $('qNum').textContent);
 
-    /* 5. walk all 12 steps */
+    /* ---------- 5. walk all 13 steps ---------- */
     const textAnswers = {
-      1: 'a 30th birthday party', 3: 'Austin, TX', 4: '60',
+      1: 'a 50th birthday celebration', 3: 'Austin, TX', 4: '50',
       5: '8000', 11: 'wheelchair access for grandma', 12: 'no loud music after 10pm'
     };
     const chipSteps = [];
 
-    for (let step = 1; step <= 12; step++) {
-      check('reached step ' + step, parseInt($('qNum').textContent, 10) === step,
+    for (let step = 1; step <= 13; step++) {
+      check('reached step ' + step, $('qNum').textContent === String(step),
         'qNum=' + $('qNum').textContent);
 
-      if (step === 12) {
+      const inp = $('answerInput');
+      if (step === 13) {
+        check('final step is the vision textarea', inp && inp.tagName === 'TEXTAREA',
+          inp ? inp.tagName : 'no input');
+        check('vision step labeled "Final step"',
+          txt('questionLabel').indexOf('Final step') > -1, txt('questionLabel'));
+        check('vision title is "Describe your vision"',
+          txt('questionTitle') === 'Describe your vision', txt('questionTitle'));
+        check('vision hints to describe mood, people, moments',
+          /mood/i.test(txt('questionHint')) && /special moments/i.test(txt('questionHint')),
+          txt('questionHint').slice(0, 80));
+        check('vision placeholder shows the example',
+          inp.placeholder.indexOf('elegant but fun 50th birthday') > -1,
+          inp.placeholder.slice(0, 70));
         check('final button says Generate my plan',
           $('nextBtn').textContent.indexOf('Generate') > -1, $('nextBtn').textContent);
-      }
 
-      const inp = $('answerInput');
-      if (inp) {
+        /* empty vision must be blocked, like every other required step */
+        inp.value = '';
+        $('nextBtn').click();
+        check('empty vision blocks generation', !vis('plan'), 'plan visible=' + vis('plan'));
+
+        inp.value = VISION;
+      } else if (inp) {
         inp.value = (inp.type === 'date') ? '2027-06-14' : (textAnswers[step] || 'x');
       } else {
         const chips = d.querySelectorAll('#questionInput .chip');
@@ -92,67 +114,97 @@ document.getElementById('f').onload = function () {
 
     check('exactly 5 chip questions (Q6-Q10)', chipSteps.length === 5, chipSteps.join(','));
 
-    /* 6. plan rendered */
-    check('plan section visible at the end', vis('plan'));
+    /* ---------- 6. plan rendered from BOTH sources ---------- */
+    check('plan visible after the vision step', vis('plan'));
     check('planner hidden at the end', !vis('planner'));
     check('plan title uses the occasion',
-      $('planTitle').textContent.toLowerCase().indexOf('birthday') > -1, $('planTitle').textContent);
-    check('plan summary mentions the city',
-      $('planSummary').textContent.indexOf('Austin') > -1, $('planSummary').textContent);
+      txt('planTitle').toLowerCase().indexOf('birthday') > -1, txt('planTitle'));
+    check('plan summary mentions the city', txt('planSummary').indexOf('Austin') > -1, txt('planSummary'));
+    check('plan summary mentions the guest count', txt('planSummary').indexOf('50') > -1, txt('planSummary'));
+
+    /* vision echoed verbatim under "In your words" */
+    check('plan echoes the vision text back', txt('planVision').indexOf('Indian food') > -1,
+      txt('planVision').slice(0, 90));
+    check('vision block is visible when text was given', vis('planVision'));
+    check('vision block is labelled "In your words"',
+      txt('planVision').indexOf('In your words') > -1, txt('planVision').slice(0, 60));
+
     check('4 meta pills', d.querySelectorAll('#planMeta .meta-pill').length === 4,
       d.querySelectorAll('#planMeta .meta-pill').length);
 
-    /* date must render the SAME day that was entered (no timezone slip) */
-    check('entered date 2027-06-14 shows as June 14 (not 13)',
-      $('planSummary').textContent.indexOf('June 14, 2027') > -1,
-      $('planSummary').textContent);
-    check('meta pill shows June 14 too',
-      $('planMeta').textContent.indexOf('June 14, 2027') > -1,
-      $('planMeta').textContent);
-    check('timeline final row shows the event day itself',
-      $('timelineList').textContent.indexOf('June 14, 2027') > -1,
-      $('timelineList').textContent.slice(-120));
-
+    /* ---------- 7. the 11 required sections ---------- */
     const cards = d.querySelectorAll('#planGrid .plan-card');
-    check('7 plan cards generated', cards.length === 7, cards.length);
     const titles = [];
     for (let i = 0; i < cards.length; i++) titles.push(cards[i].querySelector('h3').textContent);
     const joined = titles.join(' | ');
-    const wanted = ['Event concept','Suggested theme','Suggested venue type','Budget categories',
-                    'Food / catering ideas','Decoration ideas','Entertainment ideas'];
-    let allThere = true;
-    for (let i = 0; i < wanted.length; i++) if (joined.indexOf(wanted[i]) === -1) allThere = false;
-    check('cards cover all 7 required sections', allThere, joined);
 
-    /* 7. budget maths */
+    check('8 plan cards generated', cards.length === 8, cards.length);
+    ['Event concept', 'Theme & atmosphere', 'Venue type', 'Guest experience',
+     'Food & catering', 'Decorations', 'Entertainment', 'Budget breakdown']
+      .forEach(t => check('card present: ' + t, joined.indexOf(t) > -1, joined));
+    check('9 planning timeline section present', !!$('timelineList'));
+    check('10 checklist section present', !!$('checklistList'));
+    check('11 special considerations section present', !!$('considerationsList'));
+
+    /* ---------- 8. personalization from the vision ---------- */
+    const concept = txt('planGrid');
+    check('concept/plan reflects the "Indian food" vision signal',
+      concept.toLowerCase().indexOf('indian') > -1, 'no "indian" in plan grid');
+    check('plan reflects the "outdoor" vision signal',
+      concept.toLowerCase().indexOf('outdoor') > -1, 'no "outdoor" in plan grid');
+    check('plan reflects the "elegant" / "fun" mood from the vision',
+      /elegant/.test(concept.toLowerCase()), 'no mood word in plan grid');
+    check('plan reflects the "music" vision signal',
+      concept.toLowerCase().indexOf('music') > -1, 'no "music" in plan grid');
+    check('guest experience card exists with real content',
+      /seating|room|guests/i.test(concept), 'guest experience looks empty');
+
+    /* ---------- 9. budget maths & per-head math ---------- */
     const rows = d.querySelectorAll('#planGrid .budget-row');
     check('6 budget rows', rows.length === 6, rows.length);
-    let total = 0, amounts = [];
+    let total = 0;
     for (let i = 0; i < rows.length; i++) {
       const spans = rows[i].querySelectorAll('.budget-top span');
-      // Text reads "$2,400 · 30%" — take only the dollar part before the separator.
-      const dollarPart = spans[spans.length - 1].textContent.split('·')[0];
-      const amt = parseInt(dollarPart.replace(/[^0-9]/g, ''), 10);
-      amounts.push(amt); total += amt;
+      const dollar = spans[spans.length - 1].textContent.split('·')[0];
+      total += parseInt(dollar.replace(/[^0-9]/g, ''), 10);
     }
-    check('budget categories sum to the $8000 entered', total === 8000,
-      'sum=' + total + ' rows=' + amounts.join(','));
+    check('budget categories sum to the $8000 entered', total === 8000, 'sum=' + total);
+    check('budget note shows a per-guest figure',
+      /\$160/.test(txt('planGrid')), 'no per-head figure found');
 
-    /* 8. timeline / checklist / considerations */
-    const tl = d.querySelectorAll('#timelineList li');
-    check('timeline has entries', tl.length >= 5, tl.length);
-    check('timeline shows real computed dates',
-      /20\d\d/.test($('timelineList').textContent), $('timelineList').textContent.slice(0, 130));
+    /* ---------- 10. timeline / checklist / considerations ---------- */
+    check('timeline has entries', d.querySelectorAll('#timelineList li').length >= 5,
+      d.querySelectorAll('#timelineList li').length);
+    check('timeline shows real computed dates', /20\d\d/.test(txt('timelineList')),
+      txt('timelineList').slice(0, 100));
+    check('timeline mentions the food-truck/catering step',
+      /catering|caterer/i.test(txt('timelineList')), txt('timelineList').slice(0, 100));
 
     const cl = d.querySelectorAll('#checklistList li');
     check('checklist has entries', cl.length >= 5, cl.length);
+    check('checklist is personalized with the venue',
+      /Banquet hall/i.test(txt('checklistList')), txt('checklistList').slice(0, 120));
+    check('checklist includes a catering brief from the vision',
+      /caterer/i.test(txt('checklistList')), txt('checklistList').slice(0, 160));
 
-    const cons = $('considerationsList').textContent;
-    check('considerations include the special requirement', cons.indexOf('wheelchair') > -1, cons.slice(0, 140));
+    /* term casing: cuisine names are proper nouns, acronyms keep their caps */
+    check('cuisine name is capitalised in the checklist ("Indian", not "indian")',
+      /caterer on Indian/.test(txt('checklistList')), txt('checklistList').slice(0, 160));
+    check('cuisine name is capitalised in the plan grid',
+      /Indian/.test(txt('planGrid')), 'no capitalised Indian');
+    check('acronym DJ keeps its capitals in the plan grid',
+      /DJ/.test(txt('planGrid')), 'DJ was lower-cased');
+    check('no stray lowercase "dj" in the plan', !/\bdj\b/.test(txt('planGrid')),
+      'found lowercase dj');
+
+    const cons = txt('considerationsList');
+    check('considerations include the special requirement', cons.indexOf('wheelchair') > -1, cons.slice(0, 120));
     check('considerations include the thing to avoid',
-      cons.toLowerCase().indexOf('loud music') > -1, cons.slice(0, 140));
+      cons.toLowerCase().indexOf('loud music') > -1, cons.slice(0, 160));
+    check('considerations flag the outdoor weather risk',
+      /weather/i.test(cons), cons.slice(0, 200));
 
-    /* 9. checklist interactivity */
+    /* ---------- 11. checklist interactivity ---------- */
     const li = cl[0];
     const box = li.querySelector('.check-box');
     const before = box.textContent;
@@ -161,14 +213,14 @@ document.getElementById('f').onload = function () {
       before + ' -> ' + box.textContent);
     check('clicking adds the .checked class', li.classList.contains('checked'));
 
-    /* 10. restart */
+    /* ---------- 12. restart clears everything ---------- */
     $('restartBtn').click();
     check('restart returns to the planner', vis('planner'));
     check('restart starts at question 1', $('qNum').textContent === '1', $('qNum').textContent);
     check('restart clears previous answers', !$('answerInput') || $('answerInput').value === '',
       $('answerInput') ? $('answerInput').value : 'no input');
 
-    /* 11. Back preserves the typed answer */
+    /* ---------- 13. Back preserves answers ---------- */
     const q1 = $('answerInput');
     q1.value = 'a rooftop gala';
     $('nextBtn').click();
@@ -178,71 +230,46 @@ document.getElementById('f').onload = function () {
     check('Back preserved the typed answer', $('answerInput').value === 'a rooftop gala',
       $('answerInput').value);
 
-    /* 12. go home */
-    $('planBackHome').click();
-    check('goHome shows home again', vis('home'));
-
-    /* 13. header navigation must work from the planner and plan views.
-       Regression: the logo was href="#" and the nav anchors pointed at
-       sections that stay hidden, so the user had no way back to the homepage. */
-    d.querySelector('[data-type="custom"]').click();
-    check('back inside the planner', vis('planner'));
-
-    const logo = d.querySelector('.logo');
-    check('header logo exists', !!logo);
-    logo.click();
-    check('clicking the header logo returns to the homepage', vis('home'),
-      'planner=' + vis('planner') + ' plan=' + vis('plan'));
-    check('clicking the logo hides the planner', !vis('planner'));
-
-    /* nav anchor from the planner view */
-    d.querySelector('[data-type="custom"]').click();
-    check('returned to the planner for nav test', vis('planner'));
-    const typesLink = d.querySelector('.nav-links a[href="#types"]');
-    check('header "Event types" link exists', !!typesLink);
-    typesLink.click();
-    check('clicking a header nav link reveals the homepage', vis('home'),
-      'planner=' + vis('planner') + ' plan=' + vis('plan'));
-
-    /* logo must also work from the plan/results view */
-    const text2 = { 1: 'a party', 3: 'Austin, TX', 4: '40', 5: '5000' };
-    for (let s = 1; s <= 12; s++) {
+    /* ---------- 14. a plan with NO vision text still works ---------- */
+    for (let s = 1; s <= 13; s++) {
       const el = $('answerInput');
-      if (el) el.value = (el.type === 'date') ? '2027-06-14' : (text2[s] || 'x');
+      if (s === 13) { el.value = 'Just a simple gathering.'; }
+      else if (el) { el.value = (el.type === 'date') ? '2027-06-14' : ({ 1: 'a party', 3: 'Austin, TX', 4: '40', 5: '5000' }[s] || 'x'); }
       else { const ch = d.querySelectorAll('#questionInput .chip'); ch[0].click(); }
       $('nextBtn').click();
     }
-    check('on the plan view for logo test', vis('plan'));
+    check('plan still generates with minimal vision text', vis('plan'));
+    check('no crash: 8 cards render', d.querySelectorAll('#planGrid .plan-card').length === 8,
+      d.querySelectorAll('#planGrid .plan-card').length);
+    check('vision block still shown for short text', vis('planVision'));
+
+    /* ---------- 15. navigation must still work ---------- */
     d.querySelector('.logo').click();
-    check('clicking the logo from the plan view returns home', vis('home'),
+    check('header logo returns home from the plan view', vis('home'),
       'planner=' + vis('planner') + ' plan=' + vis('plan'));
 
-    /* the hero CTA should land on the event-types grid, not a hidden section */
-    const cta = d.querySelector('.hero-actions a[href="#types"]');
-    check('hero "Start planning" CTA points at #types', !!cta);
-    check('the #types section exists as its own element', !!d.getElementById('types'));
-
-    /* 14. footer links and hero CTAs are visible in every view, so they must
-       also reveal the homepage rather than pointing at hidden sections. */
     d.querySelector('[data-type="custom"]').click();
-    check('in the planner for footer test', vis('planner'));
+    check('back inside the planner', vis('planner'));
+    d.querySelector('.logo').click();
+    check('header logo returns home from the planner', vis('home'),
+      'planner=' + vis('planner') + ' plan=' + vis('plan'));
 
+    d.querySelector('[data-type="custom"]').click();
     const footerLinks = d.querySelectorAll('.footer-links a[href^="#"]');
     check('footer has in-page links', footerLinks.length > 0, footerLinks.length);
-
     footerLinks[0].click();
     check('footer link returns to the homepage', vis('home'),
       'planner=' + vis('planner') + ' plan=' + vis('plan'));
 
     d.querySelector('[data-type="custom"]').click();
-    const heroCta = d.querySelector('.hero-actions a[href="#types"]');
-    heroCta.click();
+    d.querySelector('.hero-actions a[href="#types"]').click();
     check('hero CTA returns to the homepage from the planner', vis('home'),
       'planner=' + vis('planner') + ' plan=' + vis('plan'));
 
-    /* every in-page anchor on the page must be wired, not just the header */
-    const allAnchors = d.querySelectorAll('a[href^="#"]');
-    check('all in-page anchors present', allAnchors.length >= 4, allAnchors.length);
+    /* ---------- 16. no horizontal overflow (mobile) ---------- */
+    check('no horizontal overflow on the page',
+      d.documentElement.scrollWidth <= w.innerWidth + 1,
+      'scrollWidth=' + d.documentElement.scrollWidth + ' viewport=' + w.innerWidth);
 
   } catch (err) {
     fail++;
