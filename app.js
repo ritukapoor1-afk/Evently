@@ -486,20 +486,18 @@ if (planBackHomeBtn) planBackHomeBtn.addEventListener("click", goHome);
 if (restartBtn) restartBtn.addEventListener("click", startOver);
 if (printBtn) printBtn.addEventListener("click", () => window.print());
 
-// Header logo: the universal "back to the start" affordance.
-const logoLink = document.querySelector(".logo");
-if (logoLink) {
-  logoLink.addEventListener("click", (e) => {
-    e.preventDefault();
-    goHome();
-  });
-}
-
-// Header nav links: reveal the homepage, then scroll to the target section.
-document.querySelectorAll('.nav-links a[href^="#"]').forEach((link) => {
+// Every in-page anchor — header nav, hero CTAs, footer links, and the header
+// logo — stays on screen in all three views, so each must work from the
+// planner and plan views too. Reveal the homepage first, then scroll.
+document.querySelectorAll('a[href^="#"]').forEach((link) => {
   link.addEventListener("click", (e) => {
     e.preventDefault();
-    goHomeAndScrollTo(link.getAttribute("href").slice(1));
+    const targetId = link.getAttribute("href").slice(1);
+    if (!targetId) {
+      goHome();
+    } else {
+      goHomeAndScrollTo(targetId);
+    }
   });
 });
 

@@ -222,6 +222,28 @@ document.getElementById('f').onload = function () {
     check('hero "Start planning" CTA points at #types', !!cta);
     check('the #types section exists as its own element', !!d.getElementById('types'));
 
+    /* 14. footer links and hero CTAs are visible in every view, so they must
+       also reveal the homepage rather than pointing at hidden sections. */
+    d.querySelector('[data-type="custom"]').click();
+    check('in the planner for footer test', vis('planner'));
+
+    const footerLinks = d.querySelectorAll('.footer-links a[href^="#"]');
+    check('footer has in-page links', footerLinks.length > 0, footerLinks.length);
+
+    footerLinks[0].click();
+    check('footer link returns to the homepage', vis('home'),
+      'planner=' + vis('planner') + ' plan=' + vis('plan'));
+
+    d.querySelector('[data-type="custom"]').click();
+    const heroCta = d.querySelector('.hero-actions a[href="#types"]');
+    heroCta.click();
+    check('hero CTA returns to the homepage from the planner', vis('home'),
+      'planner=' + vis('planner') + ' plan=' + vis('plan'));
+
+    /* every in-page anchor on the page must be wired, not just the header */
+    const allAnchors = d.querySelectorAll('a[href^="#"]');
+    check('all in-page anchors present', allAnchors.length >= 4, allAnchors.length);
+
   } catch (err) {
     fail++;
     lines.push('[FAIL] harness threw: ' + (err && err.stack ? err.stack : err));

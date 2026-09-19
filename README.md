@@ -111,11 +111,12 @@ it walks all 12 steps, generates a plan, and checks the output.
 Serve the folder, then open `/test-harness.html`. Current status:
 
 ```
-TOTAL: 75   PASSED: 75   FAILED: 0
+TOTAL: 80   PASSED: 80   FAILED: 0
 ```
 
 It covers the full questionnaire walk, budget arithmetic, date correctness,
-checklist interactivity, answer persistence, and header navigation.
+checklist interactivity, answer persistence, and navigation from every view
+(header logo, header nav, hero CTAs, footer links, and the in-page back buttons).
 
 ---
 
