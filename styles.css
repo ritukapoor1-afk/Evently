@@ -880,6 +880,30 @@ a { color: var(--primary); text-decoration: none; }
   white-space: pre-wrap;
 }
 
+/* Ordered agenda / run-of-show list rendered inside a plan card */
+.plan-card .agenda-list {
+  list-style: none;
+  padding-left: 0;
+  display: grid;
+  gap: 12px;
+}
+.plan-card .agenda-list li { position: relative; padding-left: 22px; margin-bottom: 0; }
+.plan-card .agenda-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.plan-card .agenda-list .tl-detail {
+  display: block;
+  color: var(--text-soft);
+  font-size: .95rem;
+}
+
 /* Budget total line beneath the category bars */
 .budget-note {
   margin-top: 16px;

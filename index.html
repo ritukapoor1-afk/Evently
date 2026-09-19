@@ -80,66 +80,57 @@
 
         <div class="type-grid">
           <!-- Primary: Custom Event -->
-          <button class="type-card type-card-primary" data-type="custom" onclick="startCustomEvent()">
+          <button class="type-card type-card-primary" data-type="custom">
             <div class="type-emoji">🎉</div>
             <h3>Custom Event</h3>
             <p>Any celebration, gathering, or occasion — built entirely around you.</p>
-            <span class="badge">Ready now</span>
+            <span class="badge">Start planning</span>
           </button>
 
-          <button class="type-card disabled" data-type="wedding" disabled>
+          <button class="type-card" data-type="wedding">
             <div class="type-emoji">💒</div>
             <h3>Wedding</h3>
             <p>Your perfect day, planned in detail.</p>
-            <span class="badge-soon">Coming soon</span>
           </button>
-          <button class="type-card disabled" data-type="birthday" disabled>
+          <button class="type-card" data-type="birthday">
             <div class="type-emoji">🎂</div>
             <h3>Birthday Party</h3>
             <p>From sweet 16 to milestone celebrations.</p>
-            <span class="badge-soon">Coming soon</span>
           </button>
-          <button class="type-card disabled" data-type="anniversary" disabled>
+          <button class="type-card" data-type="anniversary">
             <div class="type-emoji">💕</div>
             <h3>Anniversary</h3>
             <p>Celebrate love at any stage.</p>
-            <span class="badge-soon">Coming soon</span>
           </button>
-          <button class="type-card disabled" data-type="baby" disabled>
+          <button class="type-card" data-type="baby">
             <div class="type-emoji">🍼</div>
             <h3>Baby Shower</h3>
             <p>Welcome the newest member of the family.</p>
-            <span class="badge-soon">Coming soon</span>
           </button>
-          <button class="type-card disabled" data-type="graduation" disabled>
+          <button class="type-card" data-type="graduation">
             <div class="type-emoji">🎓</div>
             <h3>Graduation</h3>
             <p>Honor academic achievements in style.</p>
-            <span class="badge-soon">Coming soon</span>
           </button>
-          <button class="type-card disabled" data-type="corporate" disabled>
+          <button class="type-card" data-type="corporate">
             <div class="type-emoji">💼</div>
             <h3>Corporate Event</h3>
             <p>Product launches, team building, galas & more.</p>
-            <span class="badge-soon">Coming soon</span>
           </button>
-          <button class="type-card disabled" data-type="high-tea" disabled>
+          <button class="type-card" data-type="high-tea">
             <div class="type-emoji">🫖</div>
             <h3>High Tea</h3>
             <p>Elegant afternoon gatherings with charm.</p>
-            <span class="badge-soon">Coming soon</span>
           </button>
-          <button class="type-card disabled" data-type="engagement" disabled>
+          <button class="type-card" data-type="engagement">
             <div class="type-emoji">💍</div>
             <h3>Engagement</h3>
             <p>Celebrate the "yes!" moment beautifully.</p>
-            <span class="badge-soon">Coming soon</span>
           </button>
-          <button class="type-card disabled" data-type="wedding-shower" disabled>
+          <button class="type-card" data-type="wedding-shower">
             <div class="type-emoji">🎊</div>
             <h3>Wedding Shower</h3>
             <p>Bridal or couple's shower celebrations.</p>
-            <span class="badge-soon">Coming soon</span>
           </button>
         </div>
       </div>
@@ -163,8 +154,8 @@
         <button class="back-link" id="backHome">← Back to home</button>
 
         <div class="planner-header">
-          <h2>Let's plan your event</h2>
-          <p>Answer these questions and we'll create a personalized plan for you.</p>
+          <h2 id="plannerHeading">Let's plan your event</h2>
+          <p id="plannerSub">Answer these questions and we'll create a personalized plan for you.</p>
         </div>
 
         <div class="progress-wrap">
@@ -224,7 +215,8 @@
 
         <div class="plan-actions">
           <button class="btn btn-primary btn-lg" id="printBtn">🖨 Print / Save as PDF</button>
-          <button class="btn btn-ghost btn-lg" id="restartBtn">🔄 Plan another event</button>
+          <button class="btn btn-ghost btn-lg" id="restartBtn">🔄 Start over</button>
+          <button class="btn btn-ghost btn-lg" id="planEventTypes">🎊 Back to event types</button>
         </div>
       </div>
     </section>
@@ -246,6 +238,7 @@
     </div>
   </footer>
 
+  <script src="events.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

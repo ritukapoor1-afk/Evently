@@ -2,9 +2,9 @@
 
 **Plan Your Perfect Event** — a modern, mobile-friendly event-planning web app.
 
-Evently walks you through a short, friendly questionnaire, then invites you to
-describe your event in your own words, and returns a complete personalized plan
-built from **both** sources: your structured answers and your free-form vision.
+Evently walks you through a questionnaire tailored to your kind of event, then
+invites you to describe it in your own words, and returns a complete personalized
+plan built from **both** sources: your structured answers and your free-form vision.
 
 No build step, no backend, no API keys — pure HTML, CSS, and JavaScript.
 
@@ -28,101 +28,96 @@ Then visit `http://127.0.0.1:8090/`.
 ## The flow
 
 ```
-Home → Choose Your Event → Custom Event → Questionnaire → Describe Your Vision → Personalized Plan
+Home → Choose Your Event → Questionnaire → Describe Your Vision → Personalized Plan
 ```
 
-### Event types
+Every one of the ten event types is fully functional. Each has its **own
+questionnaire** and its **own set of plan sections** — they are not the same
+flow with the names swapped.
 
-| Event type | Status |
-|---|---|
-| **Custom Event** | **Ready — full working flow** |
-| Wedding | Coming soon |
-| Birthday | Coming soon |
-| Anniversary | Coming soon |
-| Baby Shower | Coming soon |
-| Graduation | Coming soon |
-| High Tea | Coming soon |
-| Engagement | Coming soon |
-| Wedding Shower | Coming soon |
-| Corporate Event | Coming soon |
-
-Custom Event is the first fully implemented path, as the brief requested.
+| Event type | Questions | Plan sections | Highlights |
+|---|---|---|---|
+| **Custom Event** | 13 | 8 | The original general-purpose flow |
+| Wedding | 18 | 12 + day-of timeline | Ceremony plan, reception plan, photography, cake, wedding-day timeline |
+| Birthday | 17 | 8 | Milestone, honoree's interests, cake, activities |
+| Anniversary | 15 | 8 | Memories & traditions, surprise elements |
+| Baby Shower | 17 | 8 | Due date timing, colour palette, games, gift preferences |
+| Graduation | 16 | 8 | School, achievements, photo wall, activities |
+| Corporate Event | 19 | 10 | Event format, run-of-show agenda, AV, branding, networking, accessibility |
+| High Tea | 16 | 7 | Time of day, tiers, drinks service, china & tableware |
+| Engagement | 15 | 8 | Proposal story, special elements |
+| Wedding Shower | 18 | 8 | Shower type, gift approach, activities |
 
 ---
 
 ## Step 1 — The questionnaire
 
-Twelve questions, with tappable option chips wherever a free-text box would be
-tedious:
+Common questions (date, location, guests, budget, indoor/outdoor, things to
+avoid) are reused where they genuinely apply. Everything else is specific to the
+event type. Examples:
 
-1. What would you like to celebrate?
-2. What is the event date?
-3. What city or location?
-4. Approximately how many guests?
-5. What is your approximate budget?
-6. What type of venue are you interested in? *(chips)*
-7. What is the overall style or theme? *(chips)*
-8. What food / catering preferences do you have? *(chips)*
-9. What entertainment would you like? *(chips)*
-10. What decorations or atmosphere do you want? *(chips)*
-11. Are there any special requirements?
-12. Is there anything you specifically do NOT want?
+- **Wedding** asks ceremony type, wedding-party size, cake, invitations, transportation, and cultural traditions
+- **Corporate** asks company, purpose, formality, AV requirements, speakers, branding, networking, and accessibility
+- **Baby Shower** asks the due date, colour palette, games, and gift preferences
+- **Birthday** asks the milestone and the honoree's special interests
+
+Answers persist as you move Back and forth, and empty answers are blocked with a
+gentle nudge rather than silently advancing.
 
 ---
 
 ## Step 2 — Describe Your Vision
 
-The closing step, and the one that makes the plan feel personal. A large
-textarea invites the user to write freely:
+Every event type ends with the same closing step. A large textarea invites the
+user to write freely:
 
 > Tell us what you're imagining. Describe your event in your own words — the
 > mood, people, special moments, things you love, and anything you want to avoid.
 
-The placeholder shows a worked example:
+Each type ships its own worked example as the placeholder, e.g. for a wedding:
 
-> *I want an elegant but fun 50th birthday celebration for about 50 guests.
-> I love Indian food, music and beautiful outdoor spaces…*
+> *I'm picturing a garden wedding at golden hour with close family, lots of
+> candles, and a relaxed dinner under string lights…*
 
 **How the free text is used.** Rather than being displayed and ignored, the
-description is scanned for concrete signals across six categories — cuisines,
-moods, settings, activities, key moments, and needs — and those signals feed the
-plan generator alongside the structured answers:
+description is scanned for signals across seven categories — cuisines, moods,
+settings, activities, key moments, needs, and colours — and those signals feed
+the plan generator alongside the structured answers:
 
 | Written in the vision | Effect on the plan |
 |---|---|
-| "Indian food" | Food card centres it; budget shifts toward catering (32%) |
-| "outdoor spaces" | Venue card, décor card, and a weather-plan consideration |
-| "music" | Entertainment card weaves it in |
+| "Indian food" | Food section centres it; the budget shifts toward catering |
+| "outdoor" | Venue, décor, and a weather-plan consideration |
+| "music" | Entertainment section weaves it in |
 | "elegant but fun" | Concept and theme mood |
-| "wheelchair access" | Guest-experience comfort note + a consideration |
-| "no loud music" | Carried through to décor and considerations |
+| "wheelchair access" | Guest-experience note + a consideration |
+| "white flowers" | Colour and décor references |
 
-The user's own words are also echoed back at the top of the plan under
-**"In your words"**, so the connection between input and output is visible.
-
-Answers (including the vision) persist as you move Back and forth.
+The user's own words are also echoed at the top of the plan under **"In your
+words"**, so the connection between input and output is visible.
 
 ---
 
 ## Step 3 — The generated plan
 
-All eleven required sections, each derived from the two input sources:
+Each type produces its own section list. Every plan includes a budget breakdown,
+a planning timeline counted backwards from the real event date, a clickable
+checklist, and special considerations — plus type-specific sections such as a
+ceremony plan, a run-of-show agenda, or a wedding-day timeline.
 
-| # | Section | Personalised by |
-|---|---|---|
-| 1 | Event concept | occasion, place, guest count, mood, cuisine, setting |
-| 2 | Theme & atmosphere | style chips, décor chips, vision mood, key moments |
-| 3 | Venue type | venue chips, vision setting, guest count, catering needs |
-| 4 | Guest experience | guest count, key moments, comfort needs, entertainment |
-| 5 | Food & catering | catering chips, vision cuisines, dietary needs, guest count |
-| 6 | Decorations | décor chips, indoor/outdoor setting, mood, things to avoid |
-| 7 | Entertainment | entertainment chips, vision activities, key moments |
-| 8 | Budget breakdown | total, per-guest figure, split weighted by food focus |
-| 9 | Planning timeline | counted backwards from the real event date, with catering/décor notes |
-| 10 | Detailed checklist | venue, budget, cuisine brief, entertainment, décor, moments, needs |
-| 11 | Special considerations | special requirements, avoid list, needs, outdoor risk |
+Budget splits are per-type too: a wedding weights photography and florals, a baby
+shower weights games and décor, and a corporate event carries a larger
+contingency because last-minute AV and headcount changes are routine.
 
 Plans can be printed or saved as a PDF via the built-in print stylesheet.
+
+---
+
+## Navigation
+
+- **Back to event types** — returns to the Choose Your Event grid to pick another type
+- **Start over** — relaunches the *same* event type with a clean sheet
+- **Header logo / nav / hero CTAs / footer links** — all work from every view
 
 ---
 
@@ -131,38 +126,42 @@ Plans can be printed or saved as a PDF via the built-in print stylesheet.
 | File | Purpose |
 |---|---|
 | `index.html` | Markup for all three views (home, questionnaire, plan) |
+| `events.js` | The ten event types: their questions and their plan builders |
+| `app.js` | The generic engine: step flow, vision parser, plan renderer |
 | `styles.css` | Design tokens, layout, responsive breakpoints, print styles |
-| `app.js` | Question definitions, step engine, vision parser, plan generator |
-| `test-harness.html` | 107 automated end-to-end assertions (see below) |
+| `test-harness.html` | 220 automated end-to-end assertions (see below) |
+
+The engine knows nothing about any specific event type. Adding an eleventh type
+means adding one entry to `events.js` and one card to `index.html` — no engine
+changes.
 
 ---
 
 ## Tests
 
-`test-harness.html` drives the real UI in an iframe and asserts on the live DOM —
-it walks all 13 steps, types the vision text, generates a plan, and checks the
-output. It is a real test, not a smoke test: it clicks the actual buttons and
-reads the resulting DOM.
+`test-harness.html` drives the real UI in an iframe and asserts on the live DOM:
+it clicks the actual event-type cards, walks every question of every type, types
+the vision text, and checks the resulting plan.
 
 Serve the folder, then open `/test-harness.html`. Current status:
 
 ```
-TOTAL: 107   PASSED: 107   FAILED: 0
+TOTAL: 220   PASSED: 220   FAILED: 0
 ```
 
 Coverage:
 
-- Full questionnaire walk, step by step, including the vision step
-- The vision textarea: placeholder, guidance copy, "Final step" labelling
-- Empty-answer blocking on both a normal question and the vision step
-- All 11 plan sections present
-- **Personalisation** — asserts the plan actually contains "Indian", "outdoor",
-  "elegant", and "music" from the vision text
-- Term casing — "Indian" stays capitalised, "DJ" keeps its capitals
-- Budget arithmetic (categories sum to the entered total) and per-guest figure
-- Date correctness (no timezone off-by-one)
-- Checklist interactivity and answer persistence across Back/Forward
-- Navigation from every view: header logo, header nav, hero CTAs, footer links
+- All 10 cards enabled, with no "Coming soon" badges remaining
+- All 10 flows walked end to end, every question in order
+- Each type produces exactly the plan sections the brief requires
+- **Personalization** — asserts plans actually contain values from the structured
+  answers (80 guests, Austin) *and* the free-form vision (Indian, outdoor, wheelchair)
+- Question sets are verified to be genuinely different, not copies
+- The Custom Event flow is asserted unchanged: same 13 questions, same wording, same 8 sections
+- Corporate agenda renders ordered run-of-show items
+- Acronym casing (CEO, DJ) and preservation of user free-text casing
+- Navigation: header logo, Back to event types, Start over (same type), Back preserving answers
+- Empty-answer blocking
 - No horizontal overflow at mobile width
 
 ---
@@ -171,7 +170,7 @@ Coverage:
 
 - **Demo data only.** Suggestions are sample content, not live vendor data.
 - **No persistence.** Refreshing the page resets the questionnaire.
-- **Mobile-friendly.** Verified at 390px across all views with no horizontal
-  overflow; chips and plan cards collapse to a single column.
+- **Mobile-friendly.** Verified at 390px across every event type with no
+  horizontal overflow; chips and plan cards collapse to a single column.
 - **Accessible.** Visible focus rings, semantic landmarks, `aria-pressed` on
   option chips, and a `prefers-reduced-motion` fallback.

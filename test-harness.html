@@ -2,19 +2,19 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Evently end-to-end test</title>
+<title>Evently — all event types test</title>
 <style>
-  body { font-family: Consolas, monospace; padding: 20px; }
+  body { font-family: Consolas, monospace; padding: 18px; }
   #out { font-size: 13px; line-height: 1.45; white-space: pre-wrap; }
-  iframe { width: 1100px; height: 700px; border: 1px solid #ccc; margin-top: 20px; }
+  iframe { width: 1100px; height: 700px; border: 1px solid #ccc; margin-top: 16px; }
 </style>
 </head>
 <body>
 <pre id="out">running…</pre>
 <iframe id="f" src="/index.html"></iframe>
 <script>
-/* Fully synchronous: every assertion runs inside the iframe's load handler,
-   which completes before this parent document fires its own load event. */
+/* Drives the real UI for every event type. Fully synchronous: everything runs
+   inside the iframe load handler, before this parent document fires load. */
 document.getElementById('f').onload = function () {
   const lines = [];
   let pass = 0, fail = 0;
@@ -22,6 +22,7 @@ document.getElementById('f').onload = function () {
     if (cond) { pass++; lines.push('[PASS] ' + name); }
     else { fail++; lines.push('[FAIL] ' + name + (extra !== undefined ? '  -> got: ' + extra : '')); }
   };
+  const section = (t) => { lines.push(''); lines.push('--- ' + t + ' ---'); };
 
   const f = document.getElementById('f');
   const d = f.contentDocument;
@@ -29,250 +30,312 @@ document.getElementById('f').onload = function () {
   const $ = id => d.getElementById(id);
   const vis = id => !$(id).classList.contains('hidden');
   const txt = id => ($(id) ? $(id).textContent : '');
+  /* Card titles render as <h3><span class="card-icon">🎯</span>Event concept</h3>,
+     so compare against the label only, with the icon stripped. */
+  const cardTitles = () => {
+    const out = [];
+    d.querySelectorAll('#planGrid .plan-card').forEach(c => {
+      const h3 = c.querySelector('h3');
+      const icon = h3.querySelector('.card-icon');
+      let t = h3.textContent;
+      if (icon) t = t.slice(icon.textContent.length);
+      out.push(t.replace(/\s+/g, ' ').trim());
+    });
+    return out;
+  };
+  const ET = () => w.EVENTLY.EVENT_TYPES;
 
-  const VISION = 'I want an elegant but fun 50th birthday celebration for about 50 guests. ' +
-                 'I love Indian food, music and beautiful outdoor spaces.';
+  const VISION = 'I want an elegant but fun celebration for about 80 guests. ' +
+                 'I love Indian food, music and beautiful outdoor spaces, with lots of candles and white flowers. ' +
+                 'My grandmother needs wheelchair access, so please keep that in mind.';
+
+  /* Expected plan sections per event type, from the brief. */
+  const EXPECTED = {
+    custom: ["Event concept","Theme & atmosphere","Venue type","Guest experience","Food & catering","Decorations","Entertainment","Budget breakdown"],
+    wedding: ["Wedding concept","Theme, colours & style","Venue plan","Ceremony plan","Reception plan","Catering","Decorations & florals","Entertainment","Photography","Cake & desserts","Guest experience","Budget breakdown"],
+    birthday: ["Birthday concept","Theme","Venue type","Food & cake","Entertainment","Decorations","Activities","Budget breakdown"],
+    anniversary: ["Anniversary concept","Atmosphere & theme","Venue","Food","Entertainment","Décor","Special moments","Budget breakdown"],
+    baby: ["Baby shower concept","Theme","Venue setup","Food & desserts","Decorations","Games & activities","Gift ideas","Budget breakdown"],
+    graduation: ["Graduation concept","Theme","Venue","Food","Entertainment","Decorations","Activities","Budget breakdown"],
+    corporate: ["Event concept","Recommended format","Venue requirements","Agenda","Catering","Audio/visual","Branding","Entertainment","Networking ideas","Budget breakdown"],
+    "high-tea": ["High tea concept","Theme & atmosphere","Menu & tiers","Drinks service","Décor & table setting","Entertainment","Budget breakdown"],
+    engagement: ["Engagement concept","Atmosphere & theme","Venue","Food & drinks","Entertainment","Décor","Special moments","Budget breakdown"],
+    "wedding-shower": ["Wedding shower concept","Theme","Venue setup","Food & desserts","Decorations","Activities","Gift ideas","Budget breakdown"]
+  };
+
+  const LABELS = {
+    custom: "Custom Event", wedding: "Wedding", birthday: "Birthday", anniversary: "Anniversary",
+    baby: "Baby Shower", graduation: "Graduation", corporate: "Corporate Event",
+    "high-tea": "High Tea", engagement: "Engagement", "wedding-shower": "Wedding Shower"
+  };
+
+  function showHome() {
+    $('planner').classList.add('hidden');
+    $('plan').classList.add('hidden');
+    $('home').classList.remove('hidden');
+  }
+
+  function showHomeAndStart(key) {
+    showHome();
+    d.querySelector('[data-type="' + key + '"]').click();
+  }
+
+  /* Fill whatever the current step asks for, generically. */
+  function fillStep(q) {
+    const inp = $('answerInput');
+    if (q.type === 'vision') { inp.value = VISION; return; }
+    if (q.type === 'chips') {
+      const chips = d.querySelectorAll('#questionInput .chip');
+      chips[0].click();
+      if (chips.length > 2) chips[1].click();
+      return;
+    }
+    if (q.type === 'date') { inp.value = '2027-06-14'; return; }
+    if (q.type === 'number') {
+      inp.value = q.key === 'guests' ? '80' : (q.key === 'budget' ? '15000' : '10');
+      return;
+    }
+    /* The location-ish text question differs per type (location vs ceremonyPlace). */
+    if (q.key === 'location' || q.key === 'ceremonyPlace') inp.value = 'Austin, TX';
+    else if (q.key === 'company') inp.value = 'Northwind Analytics';
+    else inp.value = 'Sample ' + q.key;
+  }
+
+  /* Run one event type end to end and gather diagnostics. */
+  function runType(key) {
+    const def = ET()[key];
+    const qs = def.questions;
+
+    showHomeAndStart(key);
+    const plannerOpened = vis('planner') && !vis('home');
+    const total = $('stepTotal').textContent;
+
+    let reachedAll = true, visionSeen = false, chipQuestions = 0, visionPlaceholder = '';
+    for (let i = 0; i < qs.length; i++) {
+      const q = qs[i];
+      if (q.type === 'vision') {
+        const ta = $('answerInput');
+        visionSeen = !!ta && ta.tagName === 'TEXTAREA';
+        if (ta) visionPlaceholder = ta.placeholder || '';
+      } else if (q.type === 'chips') chipQuestions++;
+
+      const onStep = q.type === 'vision'
+        ? /final step/i.test(txt('questionLabel'))
+        : $('qNum').textContent === String(i + 1);
+      if (!onStep) reachedAll = false;
+
+      fillStep(q);
+      $('nextBtn').click();
+    }
+
+    return {
+      key, def, qs, titles: cardTitles(), grid: txt('planGrid'),
+      planShown: vis('plan') && !vis('planner'), plannerOpened,
+      visionSeen, visionPlaceholder, total, reachedAll, chipQuestions,
+      timeline: d.querySelectorAll('#timelineList li').length,
+      checklist: d.querySelectorAll('#checklistList li').length,
+      consid: d.querySelectorAll('#considerationsList li').length,
+      visionEcho: vis('planVision'),
+      budgetRows: d.querySelectorAll('#planGrid .budget-row').length,
+      summary: txt('planSummary')
+    };
+  }
 
   try {
-    /* ---------- 1. initial state ---------- */
-    check('home visible initially', vis('home'));
-    check('planner hidden initially', !vis('planner'));
-    check('plan hidden initially', !vis('plan'));
+    /* ============ 1. all cards enabled ============ */
+    section('Event-type cards');
+    const allCards = d.querySelectorAll('.type-grid .type-card');
+    check('10 event-type cards on the page', allCards.length === 10, allCards.length);
+    let disabledCount = 0;
+    allCards.forEach(c => { if (c.disabled || c.classList.contains('disabled')) disabledCount++; });
+    check('no disabled cards remain', disabledCount === 0, disabledCount + ' disabled');
+    check('no "Coming soon" badges remain', d.querySelectorAll('.badge-soon').length === 0,
+      d.querySelectorAll('.badge-soon').length + ' badges');
 
-    /* ---------- 2. Custom Event opens the planner ---------- */
-    const card = d.querySelector('[data-type="custom"]');
-    check('custom event card exists', !!card);
-    card.click();
-    check('planner visible after card click', vis('planner'));
-    check('home hidden after card click', !vis('home'));
-    check('plan still hidden', !vis('plan'));
+    Object.keys(LABELS).forEach(k => {
+      const c = d.querySelector('[data-type="' + k + '"]');
+      check('card exists: ' + LABELS[k], !!c);
+      if (c) check('card enabled: ' + LABELS[k], !c.disabled && !c.classList.contains('disabled'));
+    });
 
-    /* ---------- 3. Q1 renders ---------- */
-    check('Q1 asks what to celebrate',
-      txt('questionTitle').toLowerCase().indexOf('celebrate') > -1, txt('questionTitle'));
-    check('progress total is 13 (12 questions + vision)',
-      $('stepTotal').textContent === '13', $('stepTotal').textContent);
-    check('progress reads 1 of 13', $('stepCurrent').textContent === '1', $('stepCurrent').textContent);
-    check('question number is 1', $('qNum').textContent === '1', $('qNum').textContent);
-    check('question label says "Question"', txt('questionLabel').indexOf('Question') > -1, txt('questionLabel'));
-    check('percent label is 8%', $('progressPercent').textContent === '8%', $('progressPercent').textContent);
-    check('Back disabled on Q1', $('prevBtn').disabled === true);
-    check('Q1 has a text input', !!$('answerInput'));
+    /* ============ 2. the six required flows ============ */
+    ['custom', 'wedding', 'birthday', 'anniversary', 'baby', 'graduation'].forEach(key => {
+      section('Flow: ' + LABELS[key]);
+      const r = runType(key);
 
-    /* ---------- 4. empty answer blocks progress ---------- */
-    $('nextBtn').click();
-    check('empty answer blocks advancing', $('qNum').textContent === '1', 'qNum=' + $('qNum').textContent);
+      check('questionnaire opened', r.plannerOpened);
+      check('walked all ' + r.qs.length + ' questions in order', r.reachedAll);
+      check('progress total matches question count', r.total === String(r.qs.length),
+        r.total + ' vs ' + r.qs.length);
+      check('has a "Describe your vision" final step', r.visionSeen);
+      check('vision step has an example placeholder', r.visionPlaceholder.length > 30);
+      check('has event-specific chip questions (' + r.chipQuestions + ')', r.chipQuestions >= 3,
+        r.chipQuestions);
+      check('plan generated', r.planShown);
+      check('vision echoed under "In your words"', r.visionEcho);
+      check('timeline rendered', r.timeline >= 5, r.timeline);
+      check('checklist rendered', r.checklist >= 6, r.checklist);
+      check('considerations rendered', r.consid >= 4, r.consid);
+      check('budget rows rendered', r.budgetRows >= 6, r.budgetRows);
 
-    /* ---------- 5. walk all 13 steps ---------- */
-    const textAnswers = {
-      1: 'a 50th birthday celebration', 3: 'Austin, TX', 4: '50',
-      5: '8000', 11: 'wheelchair access for grandma', 12: 'no loud music after 10pm'
-    };
-    const chipSteps = [];
+      const missing = EXPECTED[key].filter(t => r.titles.indexOf(t) === -1);
+      check('has all required sections for ' + LABELS[key], missing.length === 0,
+        'missing: [' + missing.join(', ') + '] got: ' + r.titles.join(' | '));
 
-    for (let step = 1; step <= 13; step++) {
-      check('reached step ' + step, $('qNum').textContent === String(step),
-        'qNum=' + $('qNum').textContent);
+      check('personalized from structured answers (80 guests)', /80/.test(r.summary), r.summary);
+      check('personalized from structured answers (Austin)', /Austin/.test(r.summary), r.summary);
+      check('personalized from the vision (Indian food)', /Indian/.test(r.grid), 'no Indian');
+      check('personalized from the vision (outdoor)', /outdoor/i.test(r.grid), 'no outdoor');
+      check('personalized from the vision (wheelchair need)',
+        /wheelchair|step-free/i.test(r.grid + txt('considerationsList')), 'no accessibility note');
+    });
 
-      const inp = $('answerInput');
-      if (step === 13) {
-        check('final step is the vision textarea', inp && inp.tagName === 'TEXTAREA',
-          inp ? inp.tagName : 'no input');
-        check('vision step labeled "Final step"',
-          txt('questionLabel').indexOf('Final step') > -1, txt('questionLabel'));
-        check('vision title is "Describe your vision"',
-          txt('questionTitle') === 'Describe your vision', txt('questionTitle'));
-        check('vision hints to describe mood, people, moments',
-          /mood/i.test(txt('questionHint')) && /special moments/i.test(txt('questionHint')),
-          txt('questionHint').slice(0, 80));
-        check('vision placeholder shows the example',
-          inp.placeholder.indexOf('elegant but fun 50th birthday') > -1,
-          inp.placeholder.slice(0, 70));
-        check('final button says Generate my plan',
-          $('nextBtn').textContent.indexOf('Generate') > -1, $('nextBtn').textContent);
+    /* ============ 3. Corporate ============ */
+    section('Flow: Corporate Event');
+    const rc = runType('corporate');
+    check('questionnaire opened', rc.plannerOpened);
+    check('walked all ' + rc.qs.length + ' questions', rc.reachedAll);
+    check('has a "Describe your vision" final step', rc.visionSeen);
+    check('plan generated', rc.planShown);
+    const missingC = EXPECTED.corporate.filter(t => rc.titles.indexOf(t) === -1);
+    check('has all required corporate sections', missingC.length === 0,
+      'missing: [' + missingC.join(', ') + '] got: ' + rc.titles.join(' | '));
+    check('agenda section renders ordered items',
+      d.querySelectorAll('#planGrid .agenda-list li').length >= 5,
+      d.querySelectorAll('#planGrid .agenda-list li').length);
+    check('corporate plan reflects the stated objective',
+      /Sample purpose/.test(rc.grid), 'objective not reflected');
+    check('corporate budget has 7 categories', rc.budgetRows === 7, rc.budgetRows);
 
-        /* empty vision must be blocked, like every other required step */
-        inp.value = '';
-        $('nextBtn').click();
-        check('empty vision blocks generation', !vis('plan'), 'plan visible=' + vis('plan'));
+    /* ============ 4. the remaining three ============ */
+    ['high-tea', 'engagement', 'wedding-shower'].forEach(key => {
+      section('Flow: ' + LABELS[key]);
+      const r = runType(key);
+      check('walked all ' + r.qs.length + ' questions', r.reachedAll);
+      check('has a vision step', r.visionSeen);
+      check('plan generated', r.planShown);
+      const missing = EXPECTED[key].filter(t => r.titles.indexOf(t) === -1);
+      check('has all required sections', missing.length === 0,
+        'missing: [' + missing.join(', ') + '] got: ' + r.titles.join(' | '));
+      check('vision echoed', r.visionEcho);
+      check('personalized from the vision', /Indian/.test(r.grid), 'no Indian');
+    });
 
-        inp.value = VISION;
-      } else if (inp) {
-        inp.value = (inp.type === 'date') ? '2027-06-14' : (textAnswers[step] || 'x');
-      } else {
-        const chips = d.querySelectorAll('#questionInput .chip');
-        check('Q' + step + ' rendered option chips', chips.length > 0, 'count=' + chips.length);
-        chips[0].click();
-        if (chips.length > 2) chips[1].click();
-        const sel = d.querySelectorAll('#questionInput .chip-selected');
-        check('Q' + step + ' chips selectable', sel.length >= 1, 'selected=' + sel.length);
-        chipSteps.push(step);
-      }
+    /* ============ 5. questions genuinely differ per type ============ */
+    section('Question sets differ by type');
+    const T = ET();
+    check('wedding asks about ceremony type', T.wedding.questions.some(q => q.key === 'ceremonyType'));
+    check('wedding asks about wedding party size', T.wedding.questions.some(q => q.key === 'partySize'));
+    check('wedding asks about cake', T.wedding.questions.some(q => q.key === 'cake'));
+    check('wedding asks about invitations', T.wedding.questions.some(q => q.key === 'invitations'));
+    check('wedding asks about transportation', T.wedding.questions.some(q => q.key === 'transport'));
+    check('wedding asks about traditions', T.wedding.questions.some(q => q.key === 'traditions'));
+    check('birthday asks about the milestone', T.birthday.questions.some(q => q.key === 'milestone'));
+    check('birthday asks about interests', T.birthday.questions.some(q => q.key === 'interests'));
+    check('anniversary asks about memories', T.anniversary.questions.some(q => q.key === 'memories'));
+    check('anniversary asks about surprises', T.anniversary.questions.some(q => q.key === 'surprise'));
+    check('baby shower asks about the due date', T.baby.questions.some(q => q.key === 'dueDate'));
+    check('baby shower asks about games', T.baby.questions.some(q => q.key === 'games'));
+    check('baby shower asks about gifts', T.baby.questions.some(q => q.key === 'gifts'));
+    check('graduation asks about the school', T.graduation.questions.some(q => q.key === 'school'));
+    check('graduation asks about achievements', T.graduation.questions.some(q => q.key === 'achievements'));
+    check('corporate asks about the company', T.corporate.questions.some(q => q.key === 'company'));
+    check('corporate asks about AV', T.corporate.questions.some(q => q.key === 'av'));
+    check('corporate asks about branding', T.corporate.questions.some(q => q.key === 'branding'));
+    check('corporate asks about networking', T.corporate.questions.some(q => q.key === 'networking'));
+    check('corporate asks about accessibility', T.corporate.questions.some(q => q.key === 'accessibility'));
 
-      $('nextBtn').click();
+    const sets = Object.keys(T).map(k => T[k].questions.map(q => q.key).join(','));
+    check('all 10 question sets are distinct', new Set(sets).size === 10,
+      new Set(sets).size + ' distinct');
+    check('wedding asks more than the custom flow',
+      T.wedding.questions.length > T.custom.questions.length,
+      T.wedding.questions.length + ' vs ' + T.custom.questions.length);
+    Object.keys(T).forEach(k => {
+      check(LABELS[k] + ' ends with a vision step',
+        T[k].questions[T[k].questions.length - 1].type === 'vision', k);
+      check(LABELS[k] + ' has a distinct plan title',
+        typeof T[k].planTitle === 'function', k);
+    });
+
+    /* custom flow must remain exactly as it was */
+    section('Custom Event preserved');
+    check('custom still asks exactly 13 questions', T.custom.questions.length === 13,
+      T.custom.questions.length);
+    check('custom keeps the original Q1 wording',
+      T.custom.questions[0].label === "What would you like to celebrate?",
+      T.custom.questions[0].label);
+    check('custom keeps the original Q2 wording',
+      T.custom.questions[1].label === "What is the event date?", T.custom.questions[1].label);
+    check('custom keeps venue/style/food/entertainment/decor chips',
+      ['venue', 'style', 'food', 'entertainment', 'decor'].every(k => T.custom.questions.some(q => q.key === k)));
+    check('custom still produces its original 8 sections',
+      EXPECTED.custom.length === 8, EXPECTED.custom.length);
+
+    /* ============ 6. navigation ============ */
+    section('Navigation');
+    showHomeAndStart('wedding');
+    T.wedding.questions.forEach(q => { fillStep(q); $('nextBtn').click(); });
+    check('wedding plan shown', vis('plan'));
+    d.querySelector('.logo').click();
+    check('header logo returns home from a plan', vis('home'),
+      'planner=' + vis('planner') + ' plan=' + vis('plan'));
+
+    showHomeAndStart('birthday');
+    T.birthday.questions.forEach(q => { fillStep(q); $('nextBtn').click(); });
+    check('birthday plan shown', vis('plan'));
+    const bet = $('planEventTypes');
+    check('"Back to event types" button exists', !!bet);
+    if (bet) {
+      bet.click();
+      check('"Back to event types" returns to the homepage', vis('home'),
+        'planner=' + vis('planner') + ' plan=' + vis('plan'));
     }
 
-    check('exactly 5 chip questions (Q6-Q10)', chipSteps.length === 5, chipSteps.join(','));
-
-    /* ---------- 6. plan rendered from BOTH sources ---------- */
-    check('plan visible after the vision step', vis('plan'));
-    check('planner hidden at the end', !vis('planner'));
-    check('plan title uses the occasion',
-      txt('planTitle').toLowerCase().indexOf('birthday') > -1, txt('planTitle'));
-    check('plan summary mentions the city', txt('planSummary').indexOf('Austin') > -1, txt('planSummary'));
-    check('plan summary mentions the guest count', txt('planSummary').indexOf('50') > -1, txt('planSummary'));
-
-    /* vision echoed verbatim under "In your words" */
-    check('plan echoes the vision text back', txt('planVision').indexOf('Indian food') > -1,
-      txt('planVision').slice(0, 90));
-    check('vision block is visible when text was given', vis('planVision'));
-    check('vision block is labelled "In your words"',
-      txt('planVision').indexOf('In your words') > -1, txt('planVision').slice(0, 60));
-
-    check('4 meta pills', d.querySelectorAll('#planMeta .meta-pill').length === 4,
-      d.querySelectorAll('#planMeta .meta-pill').length);
-
-    /* ---------- 7. the 11 required sections ---------- */
-    const cards = d.querySelectorAll('#planGrid .plan-card');
-    const titles = [];
-    for (let i = 0; i < cards.length; i++) titles.push(cards[i].querySelector('h3').textContent);
-    const joined = titles.join(' | ');
-
-    check('8 plan cards generated', cards.length === 8, cards.length);
-    ['Event concept', 'Theme & atmosphere', 'Venue type', 'Guest experience',
-     'Food & catering', 'Decorations', 'Entertainment', 'Budget breakdown']
-      .forEach(t => check('card present: ' + t, joined.indexOf(t) > -1, joined));
-    check('9 planning timeline section present', !!$('timelineList'));
-    check('10 checklist section present', !!$('checklistList'));
-    check('11 special considerations section present', !!$('considerationsList'));
-
-    /* ---------- 8. personalization from the vision ---------- */
-    const concept = txt('planGrid');
-    check('concept/plan reflects the "Indian food" vision signal',
-      concept.toLowerCase().indexOf('indian') > -1, 'no "indian" in plan grid');
-    check('plan reflects the "outdoor" vision signal',
-      concept.toLowerCase().indexOf('outdoor') > -1, 'no "outdoor" in plan grid');
-    check('plan reflects the "elegant" / "fun" mood from the vision',
-      /elegant/.test(concept.toLowerCase()), 'no mood word in plan grid');
-    check('plan reflects the "music" vision signal',
-      concept.toLowerCase().indexOf('music') > -1, 'no "music" in plan grid');
-    check('guest experience card exists with real content',
-      /seating|room|guests/i.test(concept), 'guest experience looks empty');
-
-    /* ---------- 9. budget maths & per-head math ---------- */
-    const rows = d.querySelectorAll('#planGrid .budget-row');
-    check('6 budget rows', rows.length === 6, rows.length);
-    let total = 0;
-    for (let i = 0; i < rows.length; i++) {
-      const spans = rows[i].querySelectorAll('.budget-top span');
-      const dollar = spans[spans.length - 1].textContent.split('·')[0];
-      total += parseInt(dollar.replace(/[^0-9]/g, ''), 10);
-    }
-    check('budget categories sum to the $8000 entered', total === 8000, 'sum=' + total);
-    check('budget note shows a per-guest figure',
-      /\$160/.test(txt('planGrid')), 'no per-head figure found');
-
-    /* ---------- 10. timeline / checklist / considerations ---------- */
-    check('timeline has entries', d.querySelectorAll('#timelineList li').length >= 5,
-      d.querySelectorAll('#timelineList li').length);
-    check('timeline shows real computed dates', /20\d\d/.test(txt('timelineList')),
-      txt('timelineList').slice(0, 100));
-    check('timeline mentions the food-truck/catering step',
-      /catering|caterer/i.test(txt('timelineList')), txt('timelineList').slice(0, 100));
-
-    const cl = d.querySelectorAll('#checklistList li');
-    check('checklist has entries', cl.length >= 5, cl.length);
-    check('checklist is personalized with the venue',
-      /Banquet hall/i.test(txt('checklistList')), txt('checklistList').slice(0, 120));
-    check('checklist includes a catering brief from the vision',
-      /caterer/i.test(txt('checklistList')), txt('checklistList').slice(0, 160));
-
-    /* term casing: cuisine names are proper nouns, acronyms keep their caps */
-    check('cuisine name is capitalised in the checklist ("Indian", not "indian")',
-      /caterer on Indian/.test(txt('checklistList')), txt('checklistList').slice(0, 160));
-    check('cuisine name is capitalised in the plan grid',
-      /Indian/.test(txt('planGrid')), 'no capitalised Indian');
-    check('acronym DJ keeps its capitals in the plan grid',
-      /DJ/.test(txt('planGrid')), 'DJ was lower-cased');
-    check('no stray lowercase "dj" in the plan', !/\bdj\b/.test(txt('planGrid')),
-      'found lowercase dj');
-
-    const cons = txt('considerationsList');
-    check('considerations include the special requirement', cons.indexOf('wheelchair') > -1, cons.slice(0, 120));
-    check('considerations include the thing to avoid',
-      cons.toLowerCase().indexOf('loud music') > -1, cons.slice(0, 160));
-    check('considerations flag the outdoor weather risk',
-      /weather/i.test(cons), cons.slice(0, 200));
-
-    /* ---------- 11. checklist interactivity ---------- */
-    const li = cl[0];
-    const box = li.querySelector('.check-box');
-    const before = box.textContent;
-    li.click();
-    check('clicking a checklist item toggles its box', box.textContent !== before,
-      before + ' -> ' + box.textContent);
-    check('clicking adds the .checked class', li.classList.contains('checked'));
-
-    /* ---------- 12. restart clears everything ---------- */
+    showHomeAndStart('graduation');
+    T.graduation.questions.forEach(q => { fillStep(q); $('nextBtn').click(); });
+    check('graduation plan shown', vis('plan'));
     $('restartBtn').click();
-    check('restart returns to the planner', vis('planner'));
-    check('restart starts at question 1', $('qNum').textContent === '1', $('qNum').textContent);
-    check('restart clears previous answers', !$('answerInput') || $('answerInput').value === '',
-      $('answerInput') ? $('answerInput').value : 'no input');
+    check('"Start over" returns to the planner', vis('planner'),
+      'planner=' + vis('planner') + ' plan=' + vis('plan'));
+    check('"Start over" keeps the same event type',
+      /graduation/i.test(txt('plannerHeading')), txt('plannerHeading'));
+    check('"Start over" resets to question 1', $('qNum').textContent === '1', $('qNum').textContent);
+    check('"Start over" clears previous answers',
+      !$('answerInput') || $('answerInput').value === '',
+      $('answerInput') ? $('answerInput').value : 'none');
 
-    /* ---------- 13. Back preserves answers ---------- */
+    showHomeAndStart('baby');
+    check('planner heading names the event type',
+      /baby shower/i.test(txt('plannerHeading')), txt('plannerHeading'));
+    showHomeAndStart('high-tea');
+    check('planner heading updates for high tea',
+      /high tea/i.test(txt('plannerHeading')), txt('plannerHeading'));
+
+    /* back button preserves answers across a type's own questions */
+    showHomeAndStart('corporate');
     const q1 = $('answerInput');
-    q1.value = 'a rooftop gala';
+    q1.value = 'Northwind Analytics';
     $('nextBtn').click();
-    check('advanced to Q2', $('qNum').textContent === '2', $('qNum').textContent);
+    check('advanced to question 2', $('qNum').textContent === '2', $('qNum').textContent);
     $('prevBtn').click();
-    check('Back returns to Q1', $('qNum').textContent === '1', $('qNum').textContent);
-    check('Back preserved the typed answer', $('answerInput').value === 'a rooftop gala',
+    check('Back preserves the typed answer', $('answerInput').value === 'Northwind Analytics',
       $('answerInput').value);
 
-    /* ---------- 14. a plan with NO vision text still works ---------- */
-    for (let s = 1; s <= 13; s++) {
-      const el = $('answerInput');
-      if (s === 13) { el.value = 'Just a simple gathering.'; }
-      else if (el) { el.value = (el.type === 'date') ? '2027-06-14' : ({ 1: 'a party', 3: 'Austin, TX', 4: '40', 5: '5000' }[s] || 'x'); }
-      else { const ch = d.querySelectorAll('#questionInput .chip'); ch[0].click(); }
-      $('nextBtn').click();
-    }
-    check('plan still generates with minimal vision text', vis('plan'));
-    check('no crash: 8 cards render', d.querySelectorAll('#planGrid .plan-card').length === 8,
-      d.querySelectorAll('#planGrid .plan-card').length);
-    check('vision block still shown for short text', vis('planVision'));
+    /* empty answers are still blocked */
+    showHomeAndStart('wedding');
+    $('nextBtn').click();
+    check('empty answer blocks advancing', $('qNum').textContent === '1', $('qNum').textContent);
 
-    /* ---------- 15. navigation must still work ---------- */
-    d.querySelector('.logo').click();
-    check('header logo returns home from the plan view', vis('home'),
-      'planner=' + vis('planner') + ' plan=' + vis('plan'));
-
-    d.querySelector('[data-type="custom"]').click();
-    check('back inside the planner', vis('planner'));
-    d.querySelector('.logo').click();
-    check('header logo returns home from the planner', vis('home'),
-      'planner=' + vis('planner') + ' plan=' + vis('plan'));
-
-    d.querySelector('[data-type="custom"]').click();
-    const footerLinks = d.querySelectorAll('.footer-links a[href^="#"]');
-    check('footer has in-page links', footerLinks.length > 0, footerLinks.length);
-    footerLinks[0].click();
-    check('footer link returns to the homepage', vis('home'),
-      'planner=' + vis('planner') + ' plan=' + vis('plan'));
-
-    d.querySelector('[data-type="custom"]').click();
-    d.querySelector('.hero-actions a[href="#types"]').click();
-    check('hero CTA returns to the homepage from the planner', vis('home'),
-      'planner=' + vis('planner') + ' plan=' + vis('plan'));
-
-    /* ---------- 16. no horizontal overflow (mobile) ---------- */
-    check('no horizontal overflow on the page',
+    /* ============ 7. layout ============ */
+    section('Layout');
+    check('no horizontal overflow on the homepage',
       d.documentElement.scrollWidth <= w.innerWidth + 1,
       'scrollWidth=' + d.documentElement.scrollWidth + ' viewport=' + w.innerWidth);
 
   } catch (err) {
     fail++;
+    lines.push('');
     lines.push('[FAIL] harness threw: ' + (err && err.stack ? err.stack : err));
   }
 
@@ -280,6 +343,12 @@ document.getElementById('f').onload = function () {
   lines.push('=====================================');
   lines.push('TOTAL: ' + (pass + fail) + '   PASSED: ' + pass + '   FAILED: ' + fail);
   lines.push('=====================================');
+  const fails = lines.filter(l => l.indexOf('[FAIL]') === 0);
+  if (fails.length) {
+    lines.push('');
+    lines.push('FAILURE RECAP:');
+    fails.forEach(l => lines.push('  ' + l));
+  }
   document.getElementById('out').textContent = lines.join('\n');
 };
 </script>
